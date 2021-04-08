@@ -1,0 +1,8 @@
+[package]
+name = "test_dogehouse-rs"
+version = "0.1.0"
+authors = ["Will Lane <williamlane923@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+dogehouse-rs = "0.1.0"
