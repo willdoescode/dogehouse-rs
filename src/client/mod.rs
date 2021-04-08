@@ -25,7 +25,7 @@ impl<'t, T> Client<'t, T> where T: Handler {
 	}
 
 	pub fn start(&mut self) -> Result<(), String> {
-		let handler = self.handler.unwrap_or_else(return Err(String::from("No handler provided.")));
+		let handler = self.handler.unwrap();
 		handler.on_ready(String::from("Bot is ready"));
 		loop {
 			handler.on_message(String::from("message thing"));
