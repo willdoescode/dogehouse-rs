@@ -1,6 +1,6 @@
 pub trait Handler {
-	fn on_ready(&self) {}
-	fn on_message(&self) {}
+	fn on_ready(&self, user: String) {}
+	fn on_message(&self, msg: String) {}
 }
 
 pub struct Client<'t, T> where T: Handler {
@@ -21,5 +21,11 @@ impl<'t, T> Client<'t, T> where T: Handler {
 	pub fn add_handler(mut self, handler: T) -> Self {
 		self.handler = Some(handler);
 		self
+	}
+
+	pub fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+		loop {}
+
+		Ok(())
 	}
 }
