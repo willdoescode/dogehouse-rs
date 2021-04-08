@@ -8,4 +8,4 @@ license = "MIT"
 
 [dependencies]
 tungstenite = "0.13.0"
-dogehouse-macros = { path = "../dogehouse-macros" }
+dogehouse-macros = { path = "../dogehouse-macros", version = "0.1.0" }
