@@ -7,4 +7,3 @@ pub fn show_streams(attr: TokenStream, item: TokenStream) -> TokenStream {
   println!("item: \"{}\"", item.to_string());
   item
 }
-
