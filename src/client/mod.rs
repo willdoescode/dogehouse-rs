@@ -24,7 +24,11 @@ impl<'t, T> Client<'t, T> where T: Handler {
 	}
 
 	pub fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-		loop {}
+		self.handler.unwrap().on_ready(String::from("Bot is ready"));
+		loop {
+			self.handler.unwrap().on_message(String::from("message thing"));
+			std::thread::sleep(std::time::Duration::from_secs(1));
+		}
 
 		Ok(())
 	}
