@@ -3,6 +3,7 @@ pub trait Handler {
 	fn on_message(&self, msg: String) {}
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Client<'t, T> where T: Handler {
 	token: &'t str,
 	refresh_token: &'t str,
@@ -24,9 +25,10 @@ impl<'t, T> Client<'t, T> where T: Handler {
 	}
 
 	pub fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-		self.handler.unwrap().on_ready(String::from("Bot is ready"));
+		let handler = self.handler.unwrap_or_else(Err("No handler provided"));
+		handler.on_ready(String::from("Bot is ready"));
 		loop {
-			self.handler.unwrap().on_message(String::from("message thing"));
+			handler.on_message(String::from("message thing"));
 			std::thread::sleep(std::time::Duration::from_secs(1));
 		}
 
