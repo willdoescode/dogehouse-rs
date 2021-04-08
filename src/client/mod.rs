@@ -1,3 +1,6 @@
+use tungstenite::{connect, Message};
+use url::Url;
+
 pub trait Handler {
 	fn on_ready(&self, user: String) {}
 	fn on_message(&self, msg: String) {}
@@ -25,7 +28,18 @@ impl<'t, T> Client<'t, T> where T: Handler {
 	}
 
 	pub fn start(&mut self) -> Result<(), String> {
-		let handler = self.handler.as_ref().unwrap();
+		let handler = self.handler.as_ref().expect("No handler provided");
+		std::thread::spawn(|| {
+			let (mut socket, _response) = connect(
+				Url::parse(crate::API_URL).unwrap()
+			).expect("Could not connect");
+
+			loop {
+				socket.write_message(Message::Text("ping".into())).unwrap();
+				std::thread::sleep(std::time::Duration::from_secs(8));
+			}
+		});
+
 		handler.on_ready(String::from("Bot is ready"));
 		loop {
 			handler.on_message(String::from("message thing"));

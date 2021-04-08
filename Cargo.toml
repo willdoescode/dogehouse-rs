@@ -1,9 +1,11 @@
 [package]
 name = "dogehouse-rs"
 description = "Library for dogehouse"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Will Lane <williamlane923@gmail.com>"]
 edition = "2018"
 license = "MIT"
 
 [dependencies]
+tungstenite = "0.13.0"
+url = "2.2.1"
