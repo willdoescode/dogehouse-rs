@@ -1,8 +1,10 @@
 [package]
 name = "dogehouse-macros"
 version = "0.1.0"
+description = "Macros for dogehouse-rs"
 authors = ["Will Lane <williamlane923@gmail.com>"]
 edition = "2018"
+license = "MIT"
 
 [lib]
 proc-macro = true
