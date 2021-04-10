@@ -1,11 +1,13 @@
 [package]
 name = "dogehouse-rs"
 description = "Library for dogehouse"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Will Lane <williamlane923@gmail.com>"]
 edition = "2018"
 license = "MIT"
 
 [dependencies]
+serde = { version =  "1.0.125", features = ["derive"] }
+serde_json = "1.0.64"
 tungstenite = "0.13.0"
 url = "2.2.1"

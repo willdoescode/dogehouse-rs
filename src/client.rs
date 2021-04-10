@@ -3,6 +3,7 @@ use crate::user::{User, PermAttrs};
 use tungstenite::Message::Text;
 use url::Url;
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
 pub trait Handler {
 	fn on_ready(&self, _user: String);
@@ -42,7 +43,17 @@ impl<'t, T> Client<'t, T> where
 			).expect("Could not connect");
 
 			loop {
+				#[derive(Debug, Serialize, Deserialize)]
+				struct Res {
+					code: i32,
+				}
+
 				socket.write_message(Text("ping".into())).unwrap();
+				let message = serde_json::from_str::<Res>(
+					&socket.read_message().expect("Error reading socket message"
+					).to_string()
+				).expect("Failed to parse json");
+				println!("{:?}", message);
 				std::thread::sleep(std::time::Duration::from_secs(8));
 			}
 		});
