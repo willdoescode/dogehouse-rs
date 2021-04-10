@@ -55,7 +55,7 @@ impl<'t, T> Client<'t, T> where
 					else if message.is_close() { panic!("Unable to authenticate"); }
 					std::thread::sleep(std::time::Duration::from_secs(8));
 				}
-			});
+			}).join().unwrap();
 		}
 		println!("{}", socket.lock().unwrap().read_message().unwrap().to_string());
 
