@@ -1,7 +1,7 @@
 [package]
 name = "dogehouse-rs"
 description = "Library for dogehouse"
-version = "0.1.12"
+version = "0.1.13"
 authors = ["Will Lane <williamlane923@gmail.com>"]
 edition = "2018"
 license = "MIT"
