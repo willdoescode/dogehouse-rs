@@ -39,29 +39,25 @@ impl<'t, T> Client<'t, T> where
 
 	pub fn start(&mut self) -> Result<(), &'static str> {
 		let handler = self.handler.as_ref().expect("No handler provided");
-		let (socket, _response) = tungstenite::connect(
+		let (mut socket, _response) = tungstenite::connect(
 			Url::parse(crate::API_URL).unwrap()
 		).expect("Could not connect");
+		let mut socket = Arc::new(Mutex::new(socket));
 
-		let s = Arc::new(Mutex::new(socket));
-		let mut socket = Arc::clone(&s);
-
-		std::thread::spawn(move || {
-			loop {
+		{
+			let socket = Arc::clone(&socket);
+			std::thread::spawn(move || {
 				let mut socket = socket.lock().unwrap();
-
-				socket.write_message(Text("ping".into())).unwrap();
-				let message = socket.read_message().expect("Error reading socket message");
-				if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
-				else if message.is_close() { panic!("Unable to authenticate"); }
-				std::mem::drop(socket);
-				std::thread::sleep(std::time::Duration::from_secs(8));
-			}
-		});
-
-		let mut socket = Arc::clone(&s);
-		let mut socket = socket.lock().unwrap();
-		socket.read_message().unwrap();
+				loop {
+					socket.write_message(Text("ping".into())).unwrap();
+					let message = socket.read_message().expect("Error reading socket message");
+					if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
+					else if message.is_close() { panic!("Unable to authenticate"); }
+					std::thread::sleep(std::time::Duration::from_secs(8));
+				}
+			});
+		}
+		println!("{}", socket.lock().unwrap().read_message().unwrap().to_string());
 
 		handler.on_ready(String::from("Bot is ready"));
 		loop {
