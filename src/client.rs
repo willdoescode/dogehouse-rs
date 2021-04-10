@@ -43,20 +43,10 @@ impl<'t, T> Client<'t, T> where
 			).expect("Could not connect");
 
 			loop {
-				#[derive(Debug, Serialize, Deserialize)]
-				struct Res<'a> {
-					code: i32,
-					#[serde(flatten)]
-					pong: &'a str
-				}
-
 				socket.write_message(Text("ping".into())).unwrap();
-				let message_str = socket.read_message().expect("Error reading socket message")
+				let message = socket.read_message().expect("Error reading socket message")
 					.to_string();
-				let message = serde_json::from_str::<Res>(
-					&message_str
-				).expect("Failed to parse json");
-				println!("{:?}", message);
+				println!("{}", message);
 				std::thread::sleep(std::time::Duration::from_secs(8));
 			}
 		});
