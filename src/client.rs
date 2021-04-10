@@ -4,6 +4,8 @@ use tungstenite::Message::Text;
 use url::Url;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
+use std::sync::{Arc, Mutex};
+use std::borrow::BorrowMut;
 
 pub trait Handler {
 	fn on_ready(&self, _user: String);
@@ -37,12 +39,17 @@ impl<'t, T> Client<'t, T> where
 
 	pub fn start(&mut self) -> Result<(), &'static str> {
 		let handler = self.handler.as_ref().expect("No handler provided");
-		std::thread::spawn(|| {
-			let (mut socket, _response) = tungstenite::connect(
-				Url::parse(crate::API_URL).unwrap()
-			).expect("Could not connect");
+		let (socket, _response) = tungstenite::connect(
+			Url::parse(crate::API_URL).unwrap()
+		).expect("Could not connect");
 
+		let s = Arc::new(Mutex::new(socket));
+		let mut socket = Arc::clone(&s);
+
+		std::thread::spawn(move || {
 			loop {
+				let mut socket = socket.lock().unwrap();
+
 				socket.write_message(Text("ping".into())).unwrap();
 				let message = socket.read_message().expect("Error reading socket message");
 				if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
@@ -50,6 +57,10 @@ impl<'t, T> Client<'t, T> where
 				std::thread::sleep(std::time::Duration::from_secs(8));
 			}
 		});
+
+		let socket = Arc::clone(&s);
+		let mut socket = socket.lock().unwrap();
+		socket.read_message().unwrap();
 
 		handler.on_ready(String::from("Bot is ready"));
 		loop {
