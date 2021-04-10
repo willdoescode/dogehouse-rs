@@ -46,6 +46,7 @@ impl<'t, T> Client<'t, T> where
 				#[derive(Debug, Serialize, Deserialize)]
 				struct Res<'a> {
 					code: i32,
+					#[serde(flatten)]
 					pong: &'a str
 				}
 
