@@ -44,14 +44,16 @@ impl<'t, T> Client<'t, T> where
 
 			loop {
 				#[derive(Debug, Serialize, Deserialize)]
-				struct Res {
+				struct Res<'a> {
 					code: i32,
+					pong: &'a str
 				}
 
 				socket.write_message(Text("ping".into())).unwrap();
+				let message_str = socket.read_message().expect("Error reading socket message")
+					.to_string();
 				let message = serde_json::from_str::<Res>(
-					&socket.read_message().expect("Error reading socket message"
-					).to_string()
+					&message_str
 				).expect("Failed to parse json");
 				println!("{:?}", message);
 				std::thread::sleep(std::time::Duration::from_secs(8));
