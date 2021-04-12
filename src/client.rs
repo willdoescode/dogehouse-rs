@@ -55,17 +55,8 @@ impl<'t, T> Client<'t, T> where
 		)).unwrap();
 	}
 
-	pub fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-		let handler = &self.handler.as_ref().expect("No handler provided");
-		let (mut socket, _response) =
-			tungstenite::connect(Url::parse(crate::API_URL)?)?;
-
-		self.socket = Some(Arc::new(Mutex::new(socket)));
-
-		let socket = Arc::clone(&self.socket.as_ref().unwrap());
-		socket.lock().unwrap().write_message(tungstenite::Message::Text("ping".into()))?;
-
-		socket.lock().unwrap().write_message(
+	pub(crate) fn authenticate(&self, room: &str) {
+		self.socket.as_ref().unwrap().lock().unwrap().write_message(
 			tungstenite::Message::Text(
 				json!(
 					{
@@ -74,36 +65,50 @@ impl<'t, T> Client<'t, T> where
 							"accessToken": self.token,
 							"refreshToken": self.refresh_token,
 							"reconnectToVoice": false,
-							"currentRoomId": "3daf5a80-5b0a-4dde-9527-9db1f7f13755",
+							"currentRoomId": room,
 							"muted": true,
 							"platform": "dogehouse-rs"
 						}
 					}
 				).to_string()
 			)
-		)?;
+		).expect("Could not authenticate");
+	}
+
+	pub(crate) fn heartbeat(&self) {
+		let socket = Arc::clone(&self.socket.as_ref().unwrap());
+		std::thread::spawn(move || {
+			loop {
+				socket.lock().unwrap()
+					.write_message(Text("ping".into())).unwrap();
+
+				let message = socket.lock().unwrap()
+					.read_message().unwrap();
+
+				if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
+				else if message.is_close() { panic!("Unable to authenticate"); }
+				std::thread::sleep(std::time::Duration::from_secs(8));
+			}
+		});
+	}
+
+	pub fn start(&mut self, room: &str) -> Result<(), Box<dyn std::error::Error>> {
+		let handler = &self.handler.as_ref().expect("No handler provided");
+
+		let (mut socket, _response) =
+			tungstenite::connect(Url::parse(crate::API_URL)?)?;
+
+		self.socket = Some(Arc::new(Mutex::new(socket)));
+
+		let socket = Arc::clone(&self.socket.as_ref().unwrap());
+		socket.lock().unwrap().write_message(tungstenite::Message::Text("ping".into()))?;
+
+		self.authenticate(room);
 		self.ask_to_speak();
 
 		if socket.lock().unwrap().read_message().unwrap().is_close() { panic!("Failed to authenticate"); }
 		// println!("{}", socket.lock().unwrap().read_message().expect("Error reading message"));
-
-
-		{
-			let socket = Arc::clone(&self.socket.as_ref().unwrap());
-			std::thread::spawn(move || {
-				loop {
-					socket.lock().unwrap()
-						.write_message(Text("ping".into())).unwrap();
-
-					let message = socket.lock().unwrap()
-						.read_message().unwrap();
-
-					if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
-					else if message.is_close() { panic!("Unable to authenticate"); }
-					std::thread::sleep(std::time::Duration::from_secs(8));
-				}
-			});
-		}
+		self.heartbeat();
 
 		handler.on_ready(String::from("Bot is ready"));
 		loop {

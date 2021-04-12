@@ -23,7 +23,7 @@ fn main() {
 	let mut client = Client::new(&token, &refresh_token)
 		.add_handler(Handle);
 
-	if let Err(err) = client.start() {
+	if let Err(err) = client.start("3daf5a80-5b0a-4dde-9527-9db1f7f13755") {
 		println!("{}", err.to_string());
 	}
 }
