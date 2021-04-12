@@ -6,19 +6,22 @@ use std::collections::HashMap;
 #[allow(unused_imports)]
 use serde::{Serialize, Deserialize};
 use std::sync::{Arc, Mutex};
+use tungstenite::WebSocket;
+use tungstenite::client::AutoStream;
 
 pub trait Handler {
 	fn on_ready(&self, _user: String);
 	fn on_message(&self, _msg: &Message);
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct Client<'t, T> where
 	T: Handler
 {
 	token: &'t str,
 	refresh_token: &'t str,
 	handler: Option<T>,
+	socket: Option<Arc<Mutex<WebSocket<AutoStream>>>>,
 }
 
 impl<'t, T> Client<'t, T> where
@@ -29,6 +32,7 @@ impl<'t, T> Client<'t, T> where
 			token,
 			refresh_token,
 			handler: None,
+			socket: None,
 		}
 	}
 
@@ -37,23 +41,46 @@ impl<'t, T> Client<'t, T> where
 		self
 	}
 
-	pub fn start(&mut self) -> Result<(), &'static str> {
+	pub fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
 		let handler = self.handler.as_ref().expect("No handler provided");
-		let (mut socket, _response) = tungstenite::connect(
-			Url::parse(crate::API_URL).unwrap()
-		).expect("Could not connect");
-		let mut socket = Arc::new(Mutex::new(socket));
+		let (mut socket, _response) =
+			tungstenite::connect(Url::parse(crate::API_URL)?)?;
+
+		self.socket = Some(Arc::new(Mutex::new(socket)));
+
+		let socket = Arc::clone(&self.socket.as_ref().unwrap());
+		socket.lock().unwrap().write_message(tungstenite::Message::Text("ping".into()))?;
+
+		socket.lock().unwrap().write_message(
+			tungstenite::Message::Text(
+				json!(
+					{
+						"op": "auth",
+						"d": {
+							"accessToken": self.token,
+							"refreshToken": self.refresh_token,
+							"reconnectToVoice": false,
+							"currentRoomId": "3daf5a80-5b0a-4dde-9527-9db1f7f13755",
+							"muted": true,
+							"platform": "dogehouse-rs"
+						}
+					}
+				).to_string()
+			)
+		)?;
+
+		if socket.lock().unwrap().read_message().unwrap().is_close() { panic!("Failed to authenticate") }
+		// println!("{}", socket.lock().unwrap().read_message().expect("Error reading message"));
+
 		{
-			let socket = Arc::clone(&socket);
+			let socket = Arc::clone(&self.socket.as_ref().unwrap());
 			std::thread::spawn(move || {
 				loop {
 					socket.lock().unwrap()
-						.write_message(Text("ping".into()))
-						.unwrap();
+						.write_message(Text("ping".into())).unwrap();
 
 					let message = socket.lock().unwrap()
-						.read_message()
-						.expect("Error reading socket message");
+						.read_message().unwrap();
 
 					if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
 					else if message.is_close() { panic!("Unable to authenticate"); }
@@ -61,24 +88,6 @@ impl<'t, T> Client<'t, T> where
 				}
 			});
 		}
-
-		let socket = Arc::clone(&socket);
-		socket.lock().unwrap().write_message(
-			tungstenite::Message::Text(
-				json!(
-					{
-						"op": "auth",
-						"accessToken": self.token,
-						"refreshToken": self.refresh_token,
-						"reconnectToVoice": false,
-						"currentRoomId": "3daf5a80-5b0a-4dde-9527-9db1f7f13755",
-						"muted": true,
-						"platform": "dogehouse-rs"
-					}
-				).to_string()
-			)
-		).expect("Could not write message");
-		println!("{}", socket.lock().unwrap().read_message().expect("Error reading message"));
 
 		handler.on_ready(String::from("Bot is ready"));
 		loop {
