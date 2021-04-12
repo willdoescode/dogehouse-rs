@@ -1,3 +1,7 @@
+#![allow(unused_imports)]
+#![allow(unreachable_code)]
+#![allow(unused_mut)]
+
 #[macro_use]
 extern crate serde_json;
 

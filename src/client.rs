@@ -1,11 +1,9 @@
-#![allow(unused_imports)]
-
 use crate::message::Message;
-use tungstenite::ClientHandshake;
 use crate::user::{User, PermAttrs};
 use tungstenite::Message::Text;
 use url::Url;
 use std::collections::HashMap;
+#[allow(unused_imports)]
 use serde::{Serialize, Deserialize};
 use std::sync::{Arc, Mutex};
 
