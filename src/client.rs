@@ -1,4 +1,5 @@
 use crate::message::Message;
+use tungstenite::ClientHandshake;
 use crate::user::{User, PermAttrs};
 use tungstenite::Message::Text;
 use url::Url;
@@ -43,7 +44,6 @@ impl<'t, T> Client<'t, T> where
 			Url::parse(crate::API_URL).unwrap()
 		).expect("Could not connect");
 		let mut socket = Arc::new(Mutex::new(socket));
-
 		{
 			let socket = Arc::clone(&socket);
 			std::thread::spawn(move || {
@@ -58,6 +58,7 @@ impl<'t, T> Client<'t, T> where
 		}
 
 		let socket = Arc::clone(&socket);
+		socket.lock().unwrap().write_message(tungstenite::Message::Text("auth".into()));
 
 		handler.on_ready(String::from("Bot is ready"));
 		loop {
