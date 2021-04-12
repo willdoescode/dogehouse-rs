@@ -41,6 +41,20 @@ impl<'t, T> Client<'t, T> where
 		self
 	}
 
+	pub fn ask_to_speak(&self) {
+		self.socket
+			.as_ref()
+			.unwrap()
+			.lock()
+			.unwrap()
+			.write_message(tungstenite::Message::Text(
+			json!({
+				"op": "ask_to_speak",
+				"d": {}
+			}).to_string(),
+		)).unwrap();
+	}
+
 	pub fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
 		let handler = &self.handler.as_ref().expect("No handler provided");
 		let (mut socket, _response) =
@@ -68,9 +82,11 @@ impl<'t, T> Client<'t, T> where
 				).to_string()
 			)
 		)?;
+		self.ask_to_speak();
 
-		if socket.lock().unwrap().read_message().unwrap().is_close() { panic!("Failed to authenticate") }
+		if socket.lock().unwrap().read_message().unwrap().is_close() { panic!("Failed to authenticate"); }
 		// println!("{}", socket.lock().unwrap().read_message().expect("Error reading message"));
+
 
 		{
 			let socket = Arc::clone(&self.socket.as_ref().unwrap());
