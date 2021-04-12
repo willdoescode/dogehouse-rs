@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use crate::message::Message;
 use tungstenite::ClientHandshake;
 use crate::user::{User, PermAttrs};
@@ -6,7 +8,6 @@ use url::Url;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use std::sync::{Arc, Mutex};
-use std::borrow::BorrowMut;
 
 pub trait Handler {
 	fn on_ready(&self, _user: String);
@@ -58,7 +59,22 @@ impl<'t, T> Client<'t, T> where
 		}
 
 		let socket = Arc::clone(&socket);
-		socket.lock().unwrap().write_message(tungstenite::Message::Text("auth".into()));
+		socket.lock().unwrap().write_message(
+			tungstenite::Message::Text(
+				json!(
+					{
+						"op": "auth",
+						"accessToken": self.token,
+						"refreshToken": self.refresh_token,
+						"reconnectToVoice": false,
+						"currentRoomId": "3daf5a80-5b0a-4dde-9527-9db1f7f13755",
+						"muted": true,
+						"platform": "dogehouse-rs"
+					}
+				).to_string()
+			)
+		).expect("Could not write message");
+		println!("{}", socket.lock().unwrap().read_message().expect("Error reading message"));
 
 		handler.on_ready(String::from("Bot is ready"));
 		loop {
@@ -92,6 +108,7 @@ impl<'t, T> Client<'t, T> where
 			);
 			std::thread::sleep(std::time::Duration::from_secs(1));
 		}
+		unreachable!();
 
 		Ok(())
 	}
