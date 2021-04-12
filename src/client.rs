@@ -8,6 +8,7 @@ use serde::{Serialize, Deserialize};
 use std::sync::{Arc, Mutex};
 use tungstenite::WebSocket;
 use tungstenite::client::AutoStream;
+use crate::HEARTBEAT_TIMEOUT;
 
 pub trait Handler {
 	fn on_ready(&self, _user: String);
@@ -87,7 +88,7 @@ impl<'t, T> Client<'t, T> where
 
 				if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
 				else if message.is_close() { panic!("Unable to authenticate"); }
-				std::thread::sleep(std::time::Duration::from_secs(8));
+				std::thread::sleep(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT));
 			}
 		});
 	}
