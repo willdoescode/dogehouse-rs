@@ -42,7 +42,7 @@ impl<'t, T> Client<'t, T> where
 	}
 
 	pub fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-		let handler = self.handler.as_ref().expect("No handler provided");
+		let handler = &self.handler.as_ref().expect("No handler provided");
 		let (mut socket, _response) =
 			tungstenite::connect(Url::parse(crate::API_URL)?)?;
 
