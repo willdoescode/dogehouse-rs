@@ -47,8 +47,14 @@ impl<'t, T> Client<'t, T> where
 			let socket = Arc::clone(&socket);
 			std::thread::spawn(move || {
 				loop {
-					socket.lock().unwrap().write_message(Text("ping".into())).unwrap();
-					let message = socket.lock().unwrap().read_message().expect("Error reading socket message");
+					socket.lock().unwrap()
+						.write_message(Text("ping".into()))
+						.unwrap();
+
+					let message = socket.lock().unwrap()
+						.read_message()
+						.expect("Error reading socket message");
+
 					if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
 					else if message.is_close() { panic!("Unable to authenticate"); }
 					std::thread::sleep(std::time::Duration::from_secs(8));
