@@ -14,13 +14,16 @@ impl Handler for Handle {
 #[test]
 fn main() {
 	dotenv().ok();
-	let token = env::var("token").expect("could not find token");
-	let refresh_token = env::var("refresh_token").expect("could not find token");
+	let token = env::var("token")
+		.expect("could not find token");
 
-	let mut client = Client::new(&token, &refresh_token).add_handler(Handle);
+	let refresh_token = env::var("refresh_token")
+		.expect("could not find token");
+
+	let mut client = Client::new(&token, &refresh_token)
+		.add_handler(Handle);
 
 	if let Err(err) = client.start() {
 		println!("{}", err.to_string());
 	}
-	println!("Hello, world!");
 }
