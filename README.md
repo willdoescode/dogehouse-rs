@@ -11,31 +11,32 @@ use std::env;
 
 struct Handle;
 
-impl Handler for Handle {
-	fn on_ready(&self, user: String) { 
+impl Handler for Handle { 
+  
+  fn on_ready(&self, user: String) {
     println!("{}", user);
   }
-
-	fn on_message(&self, msg: &Message) {
+  
+  fn on_message(&self, msg: &Message) {
     println!("{:?}", msg); 
   }
 }
 
 fn main() {
-	dotenv().ok();
-	let token = env::var("token")
-		.expect("could not find token");
+  dotenv().ok();
+  let token = env::var("token")
+    .expect("could not find token");
 
-	let refresh_token = env::var("refresh_token")
-		.expect("could not find token");
+  let refresh_token = env::var("refresh_token")
+    .expect("could not find token");
 
-	let mut client = Client::new(token, refresh_token)
-		.add_handler(Handle);
+  let mut client = Client::new(token, refresh_token)
+    .add_handler(Handle);
 
                                  // Room id
-	if let Err(err) = client.start("3daf5a80-5b0a-4dde-9527-9db1f7f13755") {
-		println!("{}", err.to_string());
-	}
+  if let Err(err) = client.start("3daf5a80-5b0a-4dde-9527-9db1f7f13755") {
+    println!("{}", err.to_string());
+  }
 }
 
 ```
