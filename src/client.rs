@@ -91,8 +91,7 @@ impl<T> Client<T> where
 				let message = socket.lock().unwrap()
 					.read_message().unwrap();
 
-				if message.is_text() || message.is_binary() { println!("{}", message.to_string()); }
-				else if message.is_close() { panic!("Unable to authenticate"); }
+				if message.is_close() { panic!("Unable to authenticate"); }
 				std::thread::sleep(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT));
 			}
 		});
