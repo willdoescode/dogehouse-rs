@@ -1,4 +1,4 @@
-use crate::message::Message;
+use crate::message::{Message, NewMessage};
 use crate::user::{User, PermAttrs};
 use tungstenite::Message::Text;
 use url::Url;
@@ -16,19 +16,19 @@ pub trait Handler {
 }
 
 #[derive(Debug, Clone)]
-pub struct Client<'t, T> where
-	T: Handler
+pub struct Client<T> where
+	T: Handler + Sync
 {
-	token: &'t str,
-	refresh_token: &'t str,
+	token: String,
+	refresh_token: String,
 	handler: Option<T>,
 	socket: Option<Arc<Mutex<WebSocket<AutoStream>>>>,
 }
 
-impl<'t, T> Client<'t, T> where
-	T: Handler
+impl<T> Client<T> where
+	T: Handler + Sync
 {
-	pub fn new(token: &'t str, refresh_token: &'t str) -> Self {
+	pub fn new(token: String, refresh_token: String) -> Self {
 		Self {
 			token,
 			refresh_token,
@@ -55,6 +55,11 @@ impl<'t, T> Client<'t, T> where
 			}).to_string(),
 		)).unwrap();
 	}
+
+	// TODO: Send message functionality
+	// pub fn send_message(msg: &str) {
+	//
+	// }
 
 	pub(crate) fn authenticate(&self, room: &str) {
 		self.socket.as_ref().unwrap().lock().unwrap().write_message(
@@ -93,57 +98,54 @@ impl<'t, T> Client<'t, T> where
 		});
 	}
 
-	pub fn start(&mut self, room: &str) -> Result<(), Box<dyn std::error::Error>> {
-		let handler = &self.handler.as_ref().expect("No handler provided");
+	pub(crate) fn start_loop(&self) {
+		let socket = Arc::clone(&self.socket.as_ref().unwrap());
+		loop {
+			let message = socket.lock().unwrap().read_message().unwrap();
+			if message.is_text() || message.is_binary() {
+				if message.to_string().starts_with("{\"op\":\"new_chat_msg\"") {
+					// println!("{}", message.to_string());
+					let new_message: NewMessage = serde_json::from_str(&message.to_string()).unwrap();
+					let mut msg_str = String::new();
+					for (i, token) in new_message.d.msg.tokens.iter().enumerate() {
+						if i != 0 {
+							msg_str.push_str(&format!(" {}", token.v));
+						} else {
+							msg_str.push_str(&token.v);
+						}
+					}
+					self.handler.as_ref().unwrap().on_message(&Message {
+						user_id: &new_message.d.user_id,
+						tokens: &new_message.d.msg.tokens,
+						is_whisper: new_message.d.msg.is_whisper,
+						author: &new_message.d.msg.username,
+						content: &msg_str
+					})
+				}
+			}
+		}
+	}
 
+	pub fn start(&mut self, room: &str) -> Result<(), Box<dyn std::error::Error>> {
 		let (mut socket, _response) =
 			tungstenite::connect(Url::parse(crate::API_URL)?)?;
 
 		self.socket = Some(Arc::new(Mutex::new(socket)));
-
 		let socket = Arc::clone(&self.socket.as_ref().unwrap());
-		socket.lock().unwrap().write_message(tungstenite::Message::Text("ping".into()))?;
 
 		self.authenticate(room);
+
+		if socket.lock().unwrap()
+			.read_message()
+			.unwrap()
+			.is_close() { panic!("Failed to authenticate"); }
+
 		self.ask_to_speak();
 
-		if socket.lock().unwrap().read_message().unwrap().is_close() { panic!("Failed to authenticate"); }
-		// println!("{}", socket.lock().unwrap().read_message().expect("Error reading message"));
 		self.heartbeat();
+		self.start_loop();
 
-		handler.on_ready(String::from("Bot is ready"));
-		loop {
-			handler.on_message(&Message{
-					message_id: "will",
-					author: User{
-						user_id: "will",
-						username: "will",
-						display_name: "will",
-						avatar_url: "will",
-						bio: "will",
-						last_seen: "will",
-						online: false,
-						following: false,
-						perms: PermAttrs {
-							asked_to_speak: false,
-							is_mod: false,
-							is_admin: false,
-							is_speaker: false
-						},
-						num_followers: 0,
-						num_following: 0,
-						follows_me: false,
-						current_room_id: "will"
-					},
-					content: "hello world",
-					is_whisper: false,
-
-					tokens: vec![HashMap::new()]
-				}
-			);
-			std::thread::sleep(std::time::Duration::from_secs(1));
-		}
-		unreachable!();
+		loop {}
 
 		Ok(())
 	}
