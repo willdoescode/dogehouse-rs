@@ -114,7 +114,7 @@ impl<T> Client<T> where
 		let time_since = Arc::clone(&self.time_since);
 		std::thread::spawn(move || {
 			loop {
-				if time_since_heart_beat.lock().unwrap().elapsed().as_secs() >= 8 {
+				if time_since_heart_beat.lock().unwrap().elapsed().as_secs() >= 8 && socket.lock().unwrap().can_write() {
 					socket.lock().unwrap()
 						.write_message(Text("ping".into())).unwrap();
 
@@ -126,7 +126,11 @@ impl<T> Client<T> where
 					*time_since_heart_beat.lock().unwrap() = Instant::now();
 				}
 
-				if !self.message_queue.lock().unwrap().is_empty() && self.time_since.lock().unwrap().elapsed().as_secs() > 1 {
+				if !self.message_queue.lock().unwrap().is_empty() &&
+					self.time_since.lock().unwrap().elapsed().as_secs() > 1 &&
+					socket.lock().unwrap().can_write()
+				{
+					println!("{:?}", message_queue.lock().unwrap());
 					self.send_message(self.message_queue.lock().unwrap().get(0).unwrap());
 					*message_queue.lock().unwrap() = message_queue.lock().unwrap().as_slice()[1..].to_vec();
 					println!("{:?}", self.message_queue.lock().unwrap());
@@ -139,30 +143,30 @@ impl<T> Client<T> where
 	pub(crate) fn start_loop(&self) {
 		let socket = Arc::clone(&self.socket.as_ref().unwrap());
 		loop {
-			let message = socket.lock().unwrap().read_message().unwrap();
-			if message.is_text() || message.is_binary() {
-				if message.to_string().starts_with("{\"op\":\"new_chat_msg\"") {
-					// println!("{}", message.to_string());
-					let new_message: NewMessage = serde_json::from_str(&message.to_string()).unwrap();
-					let mut msg_str = String::new();
-					for (i, token) in new_message.d.msg.tokens.iter().enumerate() {
-						if i != 0 {
-							msg_str.push_str(&format!(" {}", token.v));
-						} else {
-							msg_str.push_str(&token.v);
+			if socket.lock().unwrap().can_read() {
+				let message = socket.lock().unwrap().read_message().unwrap();
+				if message.is_text() || message.is_binary() {
+					if message.to_string().starts_with("{\"op\":\"new_chat_msg\"") {
+						// println!("{}", message.to_string());
+						let new_message: NewMessage = serde_json::from_str(&message.to_string()).unwrap();
+						let mut msg_str = String::new();
+						for (i, token) in new_message.d.msg.tokens.iter().enumerate() {
+							if i != 0 {
+								msg_str.push_str(&format!(" {}", token.v));
+							} else {
+								msg_str.push_str(&token.v);
+							}
 						}
+
+						self.message_queue.lock().unwrap().push(format!("{} said {}", &new_message.d.msg.username, &msg_str));
+						self.handler.as_ref().unwrap().on_message(&Message {
+							user_id: &new_message.d.user_id,
+							tokens: &new_message.d.msg.tokens,
+							is_whisper: new_message.d.msg.is_whisper,
+							author: &new_message.d.msg.username,
+							content: &msg_str
+						});
 					}
-
-					self.message_queue.lock().unwrap().push(format!("{} said {}", &new_message.d.msg.username, &msg_str));
-					println!("{}", &msg_str);
-
-					self.handler.as_ref().unwrap().on_message(&Message {
-						user_id: &new_message.d.user_id,
-						tokens: &new_message.d.msg.tokens,
-						is_whisper: new_message.d.msg.is_whisper,
-						author: &new_message.d.msg.username,
-						content: &msg_str
-					});
 				}
 			}
 		}
