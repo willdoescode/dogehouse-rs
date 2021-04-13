@@ -3,6 +3,13 @@
 ## WARNING: Still work in progress do not use yet
 
 #### Example
+##### In Cargo.toml
+```toml
+dogehouse-rs = "*"
+```
+
+##### In src/main.rs
+
 ```rust
 use dogehouse_rs::prelude::*;
 use dogehouse_rs::Message;
