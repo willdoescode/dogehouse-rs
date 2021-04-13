@@ -140,8 +140,6 @@ impl<T> Client<T> where
 			.unwrap()
 			.is_close() { panic!("Failed to authenticate"); }
 
-		self.ask_to_speak();
-
 		self.heartbeat();
 		self.start_loop();
 
