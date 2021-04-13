@@ -3,6 +3,7 @@ use super::Message;
 use dotenv::dotenv;
 use std::env;
 
+#[derive(Debug, Clone)]
 struct Handle;
 
 impl Handler for Handle {

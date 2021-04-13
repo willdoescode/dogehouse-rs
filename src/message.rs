@@ -44,3 +44,12 @@ pub struct Message<'a> {
 	pub(crate) author: &'a str,
 	pub(crate) content: &'a str,
 }
+
+// pub(crate) fn message_to_string(tokens: Vec<Tokens>) -> String {
+// 	tokens.iter().map(|a| match a.t {
+// 		String::from("mention") => format!("@{}", a.v),
+// 		String::from("emote") => format!(":{}:", a.v),
+// 		String::from("block") => format!("`{}`", a.v),
+// 		_ => &a.v
+// 	}).collect::<String>().trim().to_string()
+// }
