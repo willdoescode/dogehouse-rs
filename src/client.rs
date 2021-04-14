@@ -5,7 +5,7 @@ use url::Url;
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use serde::{Serialize, Deserialize};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use tungstenite::WebSocket;
 use tungstenite::client::AutoStream;
 use crate::HEARTBEAT_TIMEOUT;
@@ -23,10 +23,10 @@ pub struct Client<T> where
 	token: String,
 	refresh_token: String,
 	handler: Option<Arc<T>>,
-	socket: Option<Arc<Mutex<WebSocket<AutoStream>>>>,
-	message_queue: Arc<Mutex<Vec<String>>>,
-	time_since: Arc<Mutex<Instant>>,
-	time_since_heart_beat: Arc<Mutex<Instant>>,
+	socket: Option<Arc<RwLock<WebSocket<AutoStream>>>>,
+	message_queue: Arc<RwLock<Vec<String>>>,
+	time_since: Arc<RwLock<Instant>>,
+	time_since_heart_beat: Arc<RwLock<Instant>>,
 }
 
 impl<T> Client<T> where
@@ -38,9 +38,9 @@ impl<T> Client<T> where
 			refresh_token,
 			handler: None,
 			socket: None,
-			message_queue: Arc::new(Mutex::new(Vec::new())),
-			time_since: Arc::new(Mutex::new(Instant::now())),
-			time_since_heart_beat: Arc::new(Mutex::new(Instant::now())),
+			message_queue: Arc::new(RwLock::new(Vec::new())),
+			time_since: Arc::new(RwLock::new(Instant::now())),
+			time_since_heart_beat: Arc::new(RwLock::new(Instant::now())),
 		}
 	}
 
@@ -53,7 +53,7 @@ impl<T> Client<T> where
 		self.socket
 			.as_ref()
 			.unwrap()
-			.lock()
+			.write()
 			.unwrap()
 			.write_message(tungstenite::Message::Text(
 			json!({
@@ -65,7 +65,7 @@ impl<T> Client<T> where
 
 
 	pub(crate) fn authenticate(&self, room: &str) {
-		self.socket.as_ref().unwrap().lock().unwrap().write_message(
+		self.socket.as_ref().unwrap().write().unwrap().write_message(
 			tungstenite::Message::Text(
 				json!(
 					{
@@ -104,7 +104,7 @@ impl<T> Client<T> where
 
 		println!("{:?}", &json_msg);
 
-		socket.lock().unwrap().write_message(Text(json_msg)).unwrap();
+		socket.write().unwrap().write_message(Text(json_msg)).unwrap();
 	}
 
 	pub(crate) fn start_message_loop(self: Arc<Self>) {
@@ -114,27 +114,27 @@ impl<T> Client<T> where
 		let time_since = Arc::clone(&self.time_since);
 		std::thread::spawn(move || {
 			loop {
-				if time_since_heart_beat.lock().unwrap().elapsed().as_secs() >= 8 && socket.lock().unwrap().can_write() {
-					socket.lock().unwrap()
+				if time_since_heart_beat.read().unwrap().elapsed().as_secs() >= 8 && socket.read().unwrap().can_write() {
+					socket.write().unwrap()
 						.write_message(Text("ping".into())).unwrap();
 
-					let message = socket.lock().unwrap()
+					let message = socket.write().unwrap()
 						.read_message().unwrap();
 
 					println!("{}", message.to_string());
 					if message.is_close() { panic!("Unable to authenticate"); }
-					*time_since_heart_beat.lock().unwrap() = Instant::now();
+					*time_since_heart_beat.write().unwrap() = Instant::now();
 				}
 
-				if !self.message_queue.lock().unwrap().is_empty() &&
-					self.time_since.lock().unwrap().elapsed().as_secs() > 1 &&
-					socket.lock().unwrap().can_write()
+				if !self.message_queue.read().unwrap().is_empty() &&
+					self.time_since.read().unwrap().elapsed().as_secs() > 1 &&
+					socket.read().unwrap().can_write()
 				{
-					println!("{:?}", message_queue.lock().unwrap());
-					self.send_message(self.message_queue.lock().unwrap().get(0).unwrap());
-					*message_queue.lock().unwrap() = message_queue.lock().unwrap().as_slice()[1..].to_vec();
-					println!("{:?}", self.message_queue.lock().unwrap());
-					*time_since.lock().unwrap() = Instant::now();
+					println!("{:?}", message_queue.read().unwrap());
+					self.send_message(self.message_queue.read().unwrap().get(0).unwrap());
+					*message_queue.write().unwrap() = message_queue.read().unwrap().as_slice()[1..].to_vec();
+					println!("{:?}", self.message_queue.read().unwrap());
+					*time_since.write().unwrap() = Instant::now();
 				}
 			}
 		});
@@ -143,8 +143,8 @@ impl<T> Client<T> where
 	pub(crate) fn start_loop(&self) {
 		let socket = Arc::clone(&self.socket.as_ref().unwrap());
 		loop {
-			if socket.lock().unwrap().can_read() {
-				let message = socket.lock().unwrap().read_message().unwrap();
+			if socket.read().unwrap().can_read() {
+				let message = socket.write().unwrap().read_message().unwrap();
 				if message.is_text() || message.is_binary() {
 					if message.to_string().starts_with("{\"op\":\"new_chat_msg\"") {
 						// println!("{}", message.to_string());
@@ -158,7 +158,7 @@ impl<T> Client<T> where
 							}
 						}
 
-						self.message_queue.lock().unwrap().push(format!("{} said {}", &new_message.d.msg.username, &msg_str));
+						self.message_queue.write().unwrap().push(format!("{} said {}", &new_message.d.msg.username, &msg_str));
 						self.handler.as_ref().unwrap().on_message(&Message {
 							user_id: &new_message.d.user_id,
 							tokens: &new_message.d.msg.tokens,
@@ -176,12 +176,12 @@ impl<T> Client<T> where
 		let (mut socket, _response) =
 			tungstenite::connect(Url::parse(crate::API_URL)?)?;
 
-		self.socket = Some(Arc::new(Mutex::new(socket)));
+		self.socket = Some(Arc::new(RwLock::new(socket)));
 		let socket = Arc::clone(&self.socket.as_ref().unwrap());
 
 		self.authenticate(room);
 
-		if socket.lock().unwrap()
+		if socket.write().unwrap()
 			.read_message()
 			.unwrap()
 			.is_close() { panic!("Failed to authenticate"); }
