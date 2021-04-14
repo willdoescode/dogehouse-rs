@@ -146,6 +146,7 @@ impl<T> Client<T> where
 			if socket.read().unwrap().can_read() {
 				let message = socket.write().unwrap().read_message().unwrap();
 				if message.is_text() || message.is_binary() {
+					println!("{}", message.to_string());
 					if message.to_string().starts_with("{\"op\":\"new_chat_msg\"") {
 						// println!("{}", message.to_string());
 						let new_message: NewMessage = serde_json::from_str(&message.to_string()).unwrap();
