@@ -23,7 +23,7 @@ use url::Url;
 ///
 /// 	async fn connection_closed(&self) {
 /// 		println!("Connection closed");
-///   }
+///     }
 ///
 /// 	async fn on_pong(&self) {
 /// 		println!("Received pong")
