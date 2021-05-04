@@ -1,14 +1,31 @@
+/// Crate imports
 pub mod prelude;
 pub(crate) static API_URL: &str = "wss://api.dogehouse.tv/socket";
 pub(crate) static AUTH_GOOD: &str = "auth-good";
-use std::sync::{Arc, RwLock};
-use url::Url;
 
+/// External imports
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use async_trait::async_trait;
 use futures::{StreamExt, SinkExt};
 use serde_json::json;
+use std::sync::{Arc, RwLock};
+use url::Url;
 
+/// Implement EventHandler for a struct that you have defined
+/// ```
+/// struct Handler;
+///
+/// #[async_trait]
+/// impl EventHandler for Handler {
+/// 	async fn on_message(&self, msg: String) {
+/// 		println!("{}", msg);
+/// 	}
+///
+/// 	async fn connection_closed(&self) {
+/// 		println!("Connection closed");
+///   }
+/// }
+/// ```
 #[async_trait]
 pub trait EventHandler {
 	async fn on_message(&self, _msg: String);
