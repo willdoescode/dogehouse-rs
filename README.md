@@ -2,7 +2,7 @@
 
 ## WARNING: Still work in progress do not use yet
 
-## Documentation [Here](https://docs.rs/dogehouse-rs/0.1.21/dogehouse_rs/)
+## Documentation [Here](https://docs.rs/dogehouse-rs/)
 
 #### Example
 ##### In Cargo.toml
