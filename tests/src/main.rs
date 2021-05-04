@@ -1,4 +1,4 @@
-use dogehouse_rs::{Client, EventHandler, async_trait};
+use dogehouse_rs::prelude::*;
 use dotenv::dotenv;
 use std::env;
 

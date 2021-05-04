@@ -1,10 +1,11 @@
+pub mod prelude;
 pub(crate) static API_URL: &str = "wss://api.dogehouse.tv/socket";
 pub(crate) static AUTH_GOOD: &str = "auth-good";
 use std::sync::{Arc, RwLock};
 use url::Url;
 
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-pub use async_trait::async_trait;
+use async_trait::async_trait;
 use futures::{StreamExt, SinkExt};
 use serde_json::json;
 

@@ -12,40 +12,37 @@ dogehouse-rs = "*"
 
 ```rust
 use dogehouse_rs::prelude::*;
-use dogehouse_rs::Message;
 use dotenv::dotenv;
 use std::env;
 
-struct Handle;
+struct Handler;
 
-impl Handler for Handle { 
-  
-  fn on_ready(&self, user: String) {
-    println!("{}", user);
-  }
-  
-  fn on_message(&self, msg: &Message) {
-    println!("{:?}", msg); 
-  }
+#[async_trait]
+impl EventHandler for Handler {
+	async fn on_message(&self, msg: String) {
+		println!("{}", msg);
+	}
+
+	async fn connection_closed(&self) {
+		println!("Connection has closed")
+	}
 }
 
-fn main() {
-  dotenv().ok();
-  let token = env::var("token")
-    .expect("could not find token");
+#[tokio::main]
+async fn main() {
+	dotenv().ok();
 
-  let refresh_token = env::var("refresh_token")
-    .expect("could not find token");
+	let mut client = Client::new(
+		env::var("TOKEN").unwrap(),
+		env::var("REFRESH_TOKEN").unwrap()
+	);
 
-  let mut client = Client::new(token, refresh_token)
-    .add_handler(Handle);
+	client.add_event_handler(Handler);
 
-                                 // Room id
-  if let Err(err) = client.start("3daf5a80-5b0a-4dde-9527-9db1f7f13755") {
-    println!("{}", err.to_string());
-  }
+	if let Err(err) = client.start("9d48a1ad-1205-4626-9de9-be61c347c798").await {
+		eprintln!("Client failed to start. {}", err.to_string());
+	}
 }
-
 ```
 
 #### Testing
