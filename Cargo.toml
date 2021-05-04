@@ -1,6 +1,6 @@
 [package]
 name = "dogehouse-rs"
-version = "0.1.0"
+version = "0.1.21"
 edition = "2018"
 authors = ["William Lane <williamlane923@gmail.com>"]
 description = "A library for dogehouse written in rust"
