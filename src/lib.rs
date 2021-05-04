@@ -76,17 +76,30 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 
 		let (mut write, mut read) = ws_stream.split();
 
-		write.send(Message::Text(json!({
-			"op": "auth",
-			"d": {
-				"accessToken": self.token,
-				"refreshToken": self.refresh_token,
-				"reconnectToVoice": false,
-				"currentRoomId": self.room_id.unwrap(),
-				"muted": true,
-				"platform": "dogehouse-rs"
-			}
-		}).to_string())).await?;
+		write.send(Message::Text(
+			json!(
+				{
+					"op": "auth:request",
+					"d": {
+						"accessToken": self.token,
+						"refreshToken": self.refresh_token,
+						"reconnectToVoice": false,
+						"currentRoomId": room_id,
+						"muted": true,
+						"platform": "dogehouse-rs"
+					}
+				}
+			).to_string()
+		)).await?;
+
+		write.send(Message::Text(
+			json!({
+				"op": "room:join",
+				"d": {
+					"roomId": room_id
+				}
+			}).to_string()
+		)).await?;
 
 		tokio::spawn(async move {
 			loop {

@@ -15,7 +15,8 @@ impl EventHandler for Handler {
   }
 
   async fn connection_closed(&self) {
-    println!("Connection has closed")
+    println!("Connection has closed");
+    std::process::exit(1);
   }
 }
 
