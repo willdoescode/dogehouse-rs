@@ -4,6 +4,7 @@ version = "0.1.21"
 edition = "2018"
 authors = ["William Lane <williamlane923@gmail.com>"]
 description = "A library for dogehouse written in rust"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.40"
