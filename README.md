@@ -25,6 +25,10 @@ impl EventHandler for Handler {
 		println!("{}", msg);
 	}
 
+	async fn on_pong(&self) {
+		println!("Received ping")
+	}
+
 	async fn connection_closed(&self) {
 		println!("Connection has closed")
 	}
