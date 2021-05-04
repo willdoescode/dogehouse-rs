@@ -2,6 +2,8 @@
 
 ## WARNING: Still work in progress do not use yet
 
+## Documentation [Here](https://docs.rs/dogehouse-rs/0.1.20/dogehouse_rs/)
+
 #### Example
 ##### In Cargo.toml
 ```toml
