@@ -24,11 +24,16 @@ use url::Url;
 /// 	async fn connection_closed(&self) {
 /// 		println!("Connection closed");
 ///   }
+///
+/// 	async fn on_pong(&self) {
+/// 		println!("Received pong")
+/// 	}
 /// }
 /// ```
 #[async_trait]
 pub trait EventHandler {
 	async fn on_message(&self, _msg: String);
+	async fn on_pong(&self);
 	async fn connection_closed(&self);
 }
 
@@ -90,13 +95,22 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 			}
 		});
 
+		'L:
 		while let Some(msg) = read.next().await {
 			let msg = msg?;
 			if msg.is_close() {
 				self.event_handler.as_ref().unwrap().connection_closed().await;
-				continue;
+				continue 'L;
 			}
-			self.event_handler.as_ref().unwrap().on_message(msg.to_string()).await;
+
+			else if msg.is_binary() || msg.is_text() {
+				if msg.to_string() == "pong" {
+					self.event_handler.as_ref().unwrap().on_pong().await;
+					continue 'L;
+				}
+				self.event_handler.as_ref().unwrap().on_message(msg.to_string()).await;
+				continue 'L;
+			}
 		}
 
 		Ok(())
