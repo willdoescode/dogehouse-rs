@@ -36,8 +36,9 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 	}
 
 	/// Let user assign an event handler that implements EventHandler trait
-	pub fn add_event_handler(&mut self, handler: T) {
+	pub fn add_event_handler(mut self, handler: T) -> Self {
 		self.event_handler = Some(handler);
+		self
 	}
 
 	pub async fn start(&mut self, room_id: &'a str) -> anyhow::Result<()> {

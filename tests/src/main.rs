@@ -22,9 +22,7 @@ async fn main() {
   let mut client = Client::new(
     env::var("TOKEN").unwrap(),
     env::var("REFRESH_TOKEN").unwrap()
-  );
-
-  client.add_event_handler(Handler);
+  ).add_event_handler(Handler);
 
   if let Err(err) = client.start("9d48a1ad-1205-4626-9de9-be61c347c798").await {
     eprintln!("Client failed to start. {}", err.to_string());
