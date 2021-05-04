@@ -45,5 +45,6 @@ async fn main() {
 
 #### Testing
 ```shell
-cargo test -- --nocapture
+cd tests/
+cargo run
 ```
