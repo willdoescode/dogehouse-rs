@@ -1,15 +1,16 @@
 /// Crate imports
 pub mod prelude;
-pub(crate) static API_URL: &str = "wss://api.dogehouse.tv/socket";
-pub(crate) static AUTH_GOOD: &str = "auth-good";
+mod opcodes;
 
 /// External imports
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use async_trait::async_trait;
 use futures::{StreamExt, SinkExt};
 use serde_json::json;
-use std::sync::{Arc, RwLock};
 use url::Url;
+
+/// Constants
+const API_URL: &'static str = "wss://api.dogehouse.tv/socket";
 
 /// Implement EventHandler for a struct that you have defined
 /// ```
@@ -64,6 +65,7 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 	}
 
 	pub async fn start(&mut self, room_id: &'a str) -> anyhow::Result<()> {
+		println!("{}", opcodes::test::OPERATOR);
 		self.room_id = Some(room_id);
 		let url = Url::parse(API_URL)?;
 		println!("Connecting to {}", url);
