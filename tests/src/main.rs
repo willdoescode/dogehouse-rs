@@ -29,7 +29,7 @@ async fn main() {
     env::var("REFRESH_TOKEN").unwrap()
   ).add_event_handler(Handler);
 
-  if let Err(err) = client.start("e1f9cfdc-2463-4154-ae6f-21a22f8255ce").await {
+  if let Err(err) = client.start("61d5e75b-bc42-42ea-84bc-38a205482d3f", "uwantthisbot").await {
     eprintln!("Client failed to start. {}", err.to_string());
   }
 }

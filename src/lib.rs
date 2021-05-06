@@ -7,6 +7,7 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use async_trait::async_trait;
 use futures::{StreamExt, SinkExt};
 use serde_json::json;
+use serde::Deserialize;
 use url::Url;
 
 /// Constants
@@ -45,7 +46,8 @@ pub struct Client<'a, T>
 	token: String,
 	refresh_token: String,
 	room_id: Option<&'a str>,
-	event_handler: Option<T>
+	event_handler: Option<T>,
+	uuid: Option<String>
 }
 
 impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
@@ -54,7 +56,8 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 			token,
 			refresh_token,
 			room_id: None,
-			event_handler: None
+			event_handler: None,
+			uuid: None
 		}
 	}
 
@@ -64,9 +67,11 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 		self
 	}
 
-	pub async fn start(&mut self, room_id: &'a str) -> anyhow::Result<()> {
+	pub async fn start(&mut self, room_id: &'a str, bot_username: &'a str) -> anyhow::Result<()> {
 		println!("{}", opcodes::test::OPERATOR);
 		self.room_id = Some(room_id);
+		self.uuid = Some(uuid::Uuid::new_v4().to_string());
+
 		let url = Url::parse(API_URL)?;
 		println!("Connecting to {}", url);
 
@@ -81,7 +86,7 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 		write.send(Message::Text(
 			json!(
 				{
-					"op": "auth:request",
+					"op": "auth",
 					"d": {
 						"accessToken": self.token,
 						"refreshToken": self.refresh_token,
@@ -94,37 +99,98 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 			).to_string()
 		)).await?;
 
+		#[derive(Deserialize)]
+		struct CreateBotResponse {
+			op: String,
+			p: CreateBotResponseP,
+		}
+
+		#[derive(Deserialize)]
+		struct CreateBotResponseP {
+			apiKey: serde_json::Value,
+			isUsernameTaken: serde_json::Value,
+			error: serde_json::Value
+		}
+
 		write.send(Message::Text(
-			json!({
-				"op": "room:join",
-				"d": {
-					"roomId": room_id
+			json!(
+				{
+					"op": opcodes::user::CREATE_BOT,
+					"p": {
+						"username": bot_username
+					},
+					"ref": "[uuid]",
+					"v": "0.2.0",
 				}
-			}).to_string()
+			).to_string()
 		)).await?;
 
-		tokio::spawn(async move {
-			loop {
-				write.send("ping".into()).await.unwrap();
-				std::thread::sleep(std::time::Duration::new(8, 0));
-			}
-		});
+		/// Skip messages
+		read.next().await;
+		read.next().await;
 
-		'L:
+		let n = read.next().await.unwrap()?.to_string();
+		let bot_response = serde_json::from_str::<CreateBotResponse>(&n)?;
+		if bot_response.p.isUsernameTaken.is_boolean() {
+			return Err(anyhow::Error::msg("Bot name is taken."));
+		}
+
+		#[derive(Deserialize, Debug)]
+		struct BotAccount {
+			accessToken: String,
+			refreshToken: String
+		}
+
+		let bot_account = reqwest::Client::new()
+			.post("https://api.dogehouse.tv/bot/auth")
+			.header("content-type", "application/json")
+			.body(json!({
+				"apiKey": bot_response.p.apiKey.as_str()
+			}).to_string())
+			.send()
+			.await?
+			.json::<BotAccount>()
+			.await?;
+
+		println!("{:?}", bot_account);
+
+		// "accessToken": self.token,
+		// "refreshToken": self.refresh_token,
+		// "reconnectToVoice": false,
+		// "currentRoomId": room_id,
+		// "muted": true,
+		// "platform": "dogehouse-rs"
+
+		// write.send(Message::Text(
+		// 	json!({
+		// 		"op": "room:join",
+		// 		"d": {
+		// 			"roomId": room_id
+		// 		}
+		// 	}).to_string()
+		// )).await?;
+
+		// tokio::spawn(async move {
+		// 	loop {
+		// 		write.send("ping".into()).await.unwrap();
+		// 		std::thread::sleep(std::time::Duration::new(8, 0));
+		// 	}
+		// });
+
 		while let Some(msg) = read.next().await {
 			let msg = msg?;
 			if msg.is_close() {
 				self.event_handler.as_ref().unwrap().connection_closed().await;
-				continue 'L;
+				continue;
 			}
 
 			else if msg.is_binary() || msg.is_text() {
 				if msg.to_string() == "pong" {
 					self.event_handler.as_ref().unwrap().on_pong().await;
-					continue 'L;
+					continue;
 				}
 				self.event_handler.as_ref().unwrap().on_message(msg.to_string()).await;
-				continue 'L;
+				continue;
 			}
 		}
 
