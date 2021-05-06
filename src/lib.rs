@@ -45,9 +45,10 @@ pub struct Client<'a, T>
 {
 	token: String,
 	refresh_token: String,
+	bot_token: Option<String>,
+	bot_refresh_token: Option<String>,
 	room_id: Option<&'a str>,
 	event_handler: Option<T>,
-	uuid: Option<String>
 }
 
 impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
@@ -55,25 +56,16 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 		Self {
 			token,
 			refresh_token,
+			bot_token: None,
+			bot_refresh_token: None,
 			room_id: None,
 			event_handler: None,
-			uuid: None
 		}
 	}
 
-	/// Let user assign an event handler that implements EventHandler trait
-	pub fn add_event_handler(mut self, handler: T) -> Self {
-		self.event_handler = Some(handler);
-		self
-	}
-
-	pub async fn start(&mut self, room_id: &'a str, bot_username: &'a str) -> anyhow::Result<()> {
-		println!("{}", opcodes::test::OPERATOR);
-		self.room_id = Some(room_id);
-		self.uuid = Some(uuid::Uuid::new_v4().to_string());
-
+	pub async fn use_create_bot(&mut self, username: String) -> anyhow::Result<()> {
 		let url = Url::parse(API_URL)?;
-		println!("Connecting to {}", url);
+		println!("pub async Connecting to {}", url);
 
 		let (ws_stream, _) = connect_async(url)
 			.await
@@ -85,18 +77,18 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 
 		write.send(Message::Text(
 			json!(
-				{
-					"op": "auth",
-					"d": {
-						"accessToken": self.token,
-						"refreshToken": self.refresh_token,
-						"reconnectToVoice": false,
-						"currentRoomId": room_id,
-						"muted": true,
-						"platform": "dogehouse-rs"
-					}
+			{
+				"op": "auth",
+				"d": {
+					"accessToken": self.token,
+					"refreshToken": self.refresh_token,
+					"reconnectToVoice": false,
+					"currentRoomId": "",
+					"muted": true,
+					"platform": "dogehouse-rs"
 				}
-			).to_string()
+			}
+		).to_string()
 		)).await?;
 
 		#[derive(Deserialize)]
@@ -114,15 +106,15 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 
 		write.send(Message::Text(
 			json!(
-				{
-					"op": opcodes::user::CREATE_BOT,
-					"p": {
-						"username": bot_username
-					},
-					"ref": "[uuid]",
-					"v": "0.2.0",
-				}
-			).to_string()
+			{
+				"op": opcodes::user::CREATE_BOT,
+				"p": {
+					"username": username
+				},
+				"ref": "[uuid]",
+				"v": "0.2.0",
+			}
+		).to_string()
 		)).await?;
 
 		/// Skip messages
@@ -145,37 +137,79 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 			.post("https://api.dogehouse.tv/bot/auth")
 			.header("content-type", "application/json")
 			.body(json!({
-				"apiKey": bot_response.p.apiKey.as_str()
-			}).to_string())
+			"apiKey": bot_response.p.apiKey.as_str()
+		}).to_string())
 			.send()
 			.await?
 			.json::<BotAccount>()
 			.await?;
 
-		println!("{:?}", bot_account);
+		self.bot_token = Some(bot_account.accessToken);
+		self.bot_refresh_token = Some(bot_account.refreshToken);
+		Ok(())
+	}
 
-		// "accessToken": self.token,
-		// "refreshToken": self.refresh_token,
-		// "reconnectToVoice": false,
-		// "currentRoomId": room_id,
-		// "muted": true,
-		// "platform": "dogehouse-rs"
+	/// Let user assign an event handler that implements EventHandler trait
+	pub fn add_event_handler(mut self, handler: T) -> Self {
+		self.event_handler = Some(handler);
+		self
+	}
 
-		// write.send(Message::Text(
-		// 	json!({
-		// 		"op": "room:join",
-		// 		"d": {
-		// 			"roomId": room_id
-		// 		}
-		// 	}).to_string()
-		// )).await?;
+	pub async fn start(&mut self, room_id: &'a str) -> anyhow::Result<()> {
+		println!("{}", opcodes::test::OPERATOR);
+		self.room_id = Some(room_id);
+		let mut token = "";
+		let mut refresh_token = "";
+		if self.bot_token.is_some() {
+			token = &self.bot_token.as_ref().unwrap();
+			refresh_token = &self.bot_refresh_token.as_ref().unwrap();
+		} else {
+			token = &self.token;
+			refresh_token = &self.refresh_token;
+		}
 
-		// tokio::spawn(async move {
-		// 	loop {
-		// 		write.send("ping".into()).await.unwrap();
-		// 		std::thread::sleep(std::time::Duration::new(8, 0));
-		// 	}
-		// });
+		let url = Url::parse(API_URL)?;
+		println!("Connecting to {}", url);
+
+		let (ws_stream, _) = connect_async(url)
+			.await
+			.expect("Failed to connect");
+
+		println!("Successfully connected.\n");
+
+		let (mut write, mut read) = ws_stream.split();
+
+		write.send(Message::Text(
+			json!(
+				{
+					"op": "auth",
+					"d": {
+						"accessToken": token,
+						"refreshToken": refresh_token,
+						"reconnectToVoice": false,
+						"currentRoomId": self.room_id.unwrap(),
+						"muted": true,
+						"platform": "dogehouse-rs"
+					}
+				}
+			).to_string()
+		)).await?;
+
+		write.send(Message::Text(
+			json!({
+				"op": "room:join",
+				"d": {
+					"roomId": self.room_id.unwrap()
+				}
+			}).to_string()
+		)).await?;
+
+		tokio::spawn(async move {
+			loop {
+				write.send("ping".into()).await.unwrap();
+				std::thread::sleep(std::time::Duration::new(8, 0));
+			}
+		});
 
 		while let Some(msg) = read.next().await {
 			let msg = msg?;
