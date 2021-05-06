@@ -30,12 +30,13 @@ impl EventHandler for Handler {
 	}
 
 	async fn connection_closed(&self) {
-		println!("Connection has closed")
+		println!("Connection has closed");
+		std::process::exit(1);
 	}
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
 	dotenv().ok();
 
 	let mut client = Client::new(
@@ -43,9 +44,13 @@ async fn main() {
 		env::var("REFRESH_TOKEN").unwrap()
 	).add_event_handler(Handler);
 
-	if let Err(err) = client.start("9d48a1ad-1205-4626-9de9-be61c347c798").await {
+	client.use_create_bot(String::from("coolbotusername")).await?;
+
+	if let Err(err) = client.start("61d5e75b-bc42-42ea-84bc-38a205482d3f").await {
 		eprintln!("Client failed to start. {}", err.to_string());
 	}
+
+	Ok(())
 }
 ```
 
