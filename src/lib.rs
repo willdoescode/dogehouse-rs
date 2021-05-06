@@ -77,18 +77,18 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 
 		write.send(Message::Text(
 			json!(
-			{
-				"op": "auth",
-				"d": {
-					"accessToken": self.token,
-					"refreshToken": self.refresh_token,
-					"reconnectToVoice": false,
-					"currentRoomId": "",
-					"muted": true,
-					"platform": "dogehouse-rs"
+				{
+					"op": "auth",
+					"d": {
+						"accessToken": self.token,
+						"refreshToken": self.refresh_token,
+						"reconnectToVoice": false,
+						"currentRoomId": "",
+						"muted": true,
+						"platform": "dogehouse-rs"
+					}
 				}
-			}
-		).to_string()
+			).to_string()
 		)).await?;
 
 		#[derive(Deserialize)]
