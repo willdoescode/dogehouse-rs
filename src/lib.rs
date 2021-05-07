@@ -1,17 +1,14 @@
 mod opcodes;
-/// Crate imports
 pub mod prelude;
 
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::json;
-/// External imports
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use url::Url;
 use uuid::Uuid;
 
-/// Constants
 const API_URL: &'static str = "wss://api.dogehouse.tv/socket";
 
 /// In order to use EvenHandler you must first define a struct and then
