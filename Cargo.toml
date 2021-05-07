@@ -1,5 +1,6 @@
 [package]
 name = "dogehouse-rs"
+documentation = "https://docs.rs/dogehouse-rs/"
 version = "0.1.22"
 edition = "2018"
 authors = ["William Lane <williamlane923@gmail.com>"]
