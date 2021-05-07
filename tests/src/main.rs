@@ -29,9 +29,9 @@ async fn main() -> Result<()> {
     env::var("REFRESH_TOKEN").unwrap()
   ).add_event_handler(Handler);
 
-  client.use_create_bot(String::from("coolbotusername")).await?;
+  // client.use_create_bot("i_am_wills_bot", true).await?;
 
-  if let Err(err) = client.start("61d5e75b-bc42-42ea-84bc-38a205482d3f").await {
+  if let Err(err) = client.start("975be804-afbc-40c3-a2ba-5494bb2af788").await {
     eprintln!("Client failed to start. {}", err.to_string());
   }
 

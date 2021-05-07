@@ -9,11 +9,16 @@ use futures::{StreamExt, SinkExt};
 use serde_json::json;
 use serde::Deserialize;
 use url::Url;
+use uuid::Uuid;
 
 /// Constants
 const API_URL: &'static str = "wss://api.dogehouse.tv/socket";
 
-/// Implement EventHandler for a struct that you have defined
+/// In order to use EvenHandler you must first define a struct and then
+/// implement EvenHandler for that struct.
+///
+/// Then you must pass that struct as an argument to add_event_handler
+/// which is defined on Client.
 /// ```
 /// struct Handler;
 ///
@@ -63,7 +68,20 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 		}
 	}
 
-	pub async fn use_create_bot(&mut self, username: String) -> anyhow::Result<()> {
+	/// In order to create a bot make sure to first authenticate with your normal tokens and create a client
+	/// ```
+	/// let mut client = Client::new(
+	///   token,
+	///   refresh_token
+	/// ).add_event_handler(Handler);
+	/// ```
+	/// Then call use_create_bot on client with a username and a boolean value to tell dogehouse-rs
+	/// if you want your bot tokens to be shown.
+	/// use_create_bot is an async function so make sure to use await or a blocking call.
+	/// ```
+	/// client.use_create_bot("bot_name", true").await?;
+	/// ```
+	pub async fn use_create_bot(&mut self, username: &'a str, show_bot_tokens: bool) -> anyhow::Result<()> {
 		let url = Url::parse(API_URL)?;
 		println!("pub async Connecting to {}", url);
 
@@ -98,9 +116,10 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 		}
 
 		#[derive(Deserialize)]
+		#[serde(rename_all = "camelCase")]
 		struct CreateBotResponseP {
-			apiKey: serde_json::Value,
-			isUsernameTaken: serde_json::Value,
+			api_key: serde_json::Value,
+			is_username_taken: serde_json::Value,
 			error: serde_json::Value
 		}
 
@@ -117,35 +136,42 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 		).to_string()
 		)).await?;
 
-		/// Skip messages
+		// Skip messages from first two requests
 		read.next().await;
 		read.next().await;
 
 		let n = read.next().await.unwrap()?.to_string();
-		let bot_response = serde_json::from_str::<CreateBotResponse>(&n)?;
-		if bot_response.p.isUsernameTaken.is_boolean() {
+		let bot_response = serde_json::from_str::<CreateBotResponse>(&n).expect("Error invalid bot name");
+		if bot_response.p.is_username_taken.is_boolean() {
 			return Err(anyhow::Error::msg("Bot name is taken."));
 		}
 
 		#[derive(Deserialize, Debug)]
+		#[serde(rename_all = "camelCase")]
 		struct BotAccount {
-			accessToken: String,
-			refreshToken: String
+			access_token: String,
+			refresh_token: String
 		}
 
 		let bot_account = reqwest::Client::new()
 			.post("https://api.dogehouse.tv/bot/auth")
 			.header("content-type", "application/json")
-			.body(json!({
-			"apiKey": bot_response.p.apiKey.as_str()
-		}).to_string())
-			.send()
+			.body(json!(
+					{
+						"apiKey": bot_response.p.api_key.as_str()
+					}
+				).to_string()
+			).send()
 			.await?
 			.json::<BotAccount>()
 			.await?;
 
-		self.bot_token = Some(bot_account.accessToken);
-		self.bot_refresh_token = Some(bot_account.refreshToken);
+		if show_bot_tokens {
+			println!("Bot tokens: {:?}", &bot_account);
+		}
+
+		self.bot_token = Some(bot_account.access_token);
+		self.bot_refresh_token = Some(bot_account.refresh_token);
 		Ok(())
 	}
 
@@ -195,12 +221,16 @@ impl<'a, T> Client<'a, T> where T: EventHandler + Sync {
 			).to_string()
 		)).await?;
 
+		let room_join_ref = Uuid::new_v4();
+
 		write.send(Message::Text(
 			json!({
 				"op": "room:join",
 				"d": {
 					"roomId": self.room_id.unwrap()
-				}
+				},
+				"ref": room_join_ref.to_string(),
+				"v": "0.2.0",
 			}).to_string()
 		)).await?;
 
