@@ -42,6 +42,7 @@ mod user;
 #[async_trait]
 pub trait EventHandler {
     async fn on_message(&self, _msg: String);
+    async fn on_any(&self, _any: String);
     async fn on_pong(&self);
     async fn connection_closed(&self);
     async fn on_ready(&self, _user: &User);
@@ -252,7 +253,7 @@ where
                     "d": {
                         "roomId": self.room_id.unwrap()
                     },
-                    "ref": room_join_ref.to_string(),
+                    "ref": "[uuid]",
                     "v": "0.2.0",
                 })
                 .to_string(),
@@ -266,6 +267,12 @@ where
             }
         });
 
+        #[derive(Debug, Deserialize)]
+        struct Response {
+            op: String,
+            d: serde_json::Value,
+        }
+
         while let Some(msg) = read.next().await {
             let msg = msg?;
             if msg.is_close() {
@@ -276,14 +283,39 @@ where
                     .await;
                 continue;
             } else if msg.is_binary() || msg.is_text() {
+                let beginning_parsed_json =
+                    serde_json::from_str(&msg.to_string()).unwrap_or(Response {
+                        op: "no".to_string(),
+                        d: serde_json::Value::String("no".into()),
+                    });
+
+                println!("BEGINNING PARSED JSON {:?}\n", &beginning_parsed_json);
+
+                if beginning_parsed_json.op == "new_chat_msg".to_string() {
+                    self.event_handler
+                        .as_ref()
+                        .unwrap()
+                        .on_message(
+                            beginning_parsed_json
+                                .d
+                                .as_object()
+                                .unwrap()
+                                .iter()
+                                .map(|x| format!("{}", x.0))
+                                .collect::<String>(),
+                        )
+                        .await;
+                }
+
                 if msg.to_string() == "pong" {
                     self.event_handler.as_ref().unwrap().on_pong().await;
                     continue;
                 }
+
                 self.event_handler
                     .as_ref()
                     .unwrap()
-                    .on_message(msg.to_string())
+                    .on_any(msg.to_string())
                     .await;
                 continue;
             }

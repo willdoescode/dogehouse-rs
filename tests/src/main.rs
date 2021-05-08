@@ -7,11 +7,15 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
   async fn on_message(&self, msg: String) {
-    println!("{}", msg);
+    println!("MESSAGE: {}\n", msg);
+  }
+
+  async fn on_any(&self, any: String) {
+    println!("ANY: {}\n", any);
   }
 
   async fn on_pong(&self) {
-    println!("Received ping")
+    println!("Received ping");
   }
 
   async fn connection_closed(&self) {
