@@ -1,7 +1,7 @@
 [package]
 name = "dogehouse-rs"
 documentation = "https://docs.rs/dogehouse-rs/"
-version = "0.1.22"
+version = "0.1.23"
 edition = "2018"
 authors = ["William Lane <williamlane923@gmail.com>"]
 description = "A library for dogehouse written in rust"

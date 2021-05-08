@@ -59,3 +59,6 @@ pub mod auth {
 pub mod misc {
     pub(crate) const DELETE: &'static str = "misc:search";
 }
+
+pub const API_URL: &'static str = "wss://api.dogehouse.tv/socket";
+pub const TIME_OUT: u64 = 8;

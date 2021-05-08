@@ -1,6 +1,3 @@
-mod opcodes;
-pub mod prelude;
-
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -9,7 +6,12 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use url::Url;
 use uuid::Uuid;
 
-const API_URL: &'static str = "wss://api.dogehouse.tv/socket";
+use config::{API_URL, TIME_OUT};
+use user::{TopUserWrapper, User};
+
+mod config;
+pub mod prelude;
+mod user;
 
 /// In order to use EvenHandler you must first define a struct and then
 /// implement EvenHandler for that struct.
@@ -17,21 +19,24 @@ const API_URL: &'static str = "wss://api.dogehouse.tv/socket";
 /// Then you must pass that struct as an argument to add_event_handler
 /// which is defined on Client.
 /// ```
-/// struct Handler;
-///
 /// #[async_trait]
 /// impl EventHandler for Handler {
-/// 	async fn on_message(&self, msg: String) {
-/// 		println!("{}", msg);
-/// 	}
-///
-/// 	async fn connection_closed(&self) {
-/// 	  println!("Connection closed");
+///   async fn on_message(&self, msg: String) {
+///     println!("{}", msg);
 ///   }
 ///
-/// 	async fn on_pong(&self) {
-/// 		println!("Received pong")
-/// 	}
+///   async fn on_pong(&self) {
+///     println!("Received ping")
+///   }
+///
+///   async fn connection_closed(&self) {
+///     println!("Connection has closed");
+///     std::process::exit(1);
+///   }
+///
+///   async fn on_ready(&self, user: &User) {
+///     println!("{} is ready", user.display_name);
+///   }
 /// }
 /// ```
 #[async_trait]
@@ -39,6 +44,7 @@ pub trait EventHandler {
     async fn on_message(&self, _msg: String);
     async fn on_pong(&self);
     async fn connection_closed(&self);
+    async fn on_ready(&self, _user: &User);
 }
 
 #[derive(Clone)]
@@ -88,12 +94,8 @@ where
         show_bot_tokens: bool,
     ) -> anyhow::Result<()> {
         let url = Url::parse(API_URL)?;
-        println!("pub async Connecting to {}", url);
 
         let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-
-        println!("Successfully connected.\n");
-
         let (mut write, mut read) = ws_stream.split();
 
         write
@@ -133,7 +135,7 @@ where
             .send(Message::Text(
                 json!(
                     {
-                        "op": opcodes::user::CREATE_BOT,
+                        "op": config::user::CREATE_BOT,
                         "p": {
                             "username": username
                         },
@@ -195,25 +197,21 @@ where
     }
 
     pub async fn start(&mut self, room_id: &'a str) -> anyhow::Result<()> {
-        println!("{}", opcodes::test::OPERATOR);
         self.room_id = Some(room_id);
-        let mut token = "";
-        let mut refresh_token = "";
-        if self.bot_token.is_some() {
-            token = &self.bot_token.as_ref().unwrap();
-            refresh_token = &self.bot_refresh_token.as_ref().unwrap();
-        } else {
-            token = &self.token;
-            refresh_token = &self.refresh_token;
-        }
+
+        let token = match self.bot_token.is_some() {
+            true => &self.bot_token.as_ref().unwrap(),
+            false => &self.token,
+        };
+
+        let refresh_token = match self.bot_refresh_token.is_some() {
+            true => &self.bot_refresh_token.as_ref().unwrap(),
+            false => &self.refresh_token,
+        };
 
         let url = Url::parse(API_URL)?;
-        println!("Connecting to {}", url);
 
         let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-
-        println!("Successfully connected.\n");
-
         let (mut write, mut read) = ws_stream.split();
 
         write
@@ -235,6 +233,16 @@ where
             ))
             .await?;
 
+        let n = read.next().await.unwrap()?.to_string();
+        println!("{}", &n);
+
+        let account: TopUserWrapper = serde_json::from_str(&n)?;
+        self.event_handler
+            .as_ref()
+            .unwrap()
+            .on_ready(&account.d.user)
+            .await;
+
         let room_join_ref = Uuid::new_v4();
 
         write
@@ -254,7 +262,7 @@ where
         tokio::spawn(async move {
             loop {
                 write.send("ping".into()).await.unwrap();
-                std::thread::sleep(std::time::Duration::new(8, 0));
+                std::thread::sleep(std::time::Duration::new(TIME_OUT, 0));
             }
         });
 
